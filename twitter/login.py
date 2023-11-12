@@ -146,7 +146,7 @@ def execute_login_flow(client: Client, **kwargs) -> Client | None:
     return client
 
 
-def login(email: str, username: str, password: str, **kwargs) -> Client:
+def login(email: str, username: str, password: str, proxies=None, **kwargs) -> Client:
     client = Client(
         cookies={
             "email": email,
@@ -162,6 +162,7 @@ def login(email: str, username: str, password: str, **kwargs) -> Client:
             'x-twitter-active-user': 'yes',
             'x-twitter-client-language': 'en',
         },
+        proxies=proxies,
         follow_redirects=True
     )
     client = execute_login_flow(client, **kwargs)

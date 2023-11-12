@@ -36,14 +36,15 @@ if platform.system() != 'Windows':
 
 class Account:
 
-    def __init__(self, email: str = None, username: str = None, password: str = None, session: Client = None, **kwargs):
+    def __init__(self, email: str = None, username: str = None, password: str = None, session: Client = None, proxies = None, **kwargs):
         self.save = kwargs.get('save', True)
         self.debug = kwargs.get('debug', 0)
         self.gql_api = 'https://twitter.com/i/api/graphql'
         self.v1_api = 'https://api.twitter.com/1.1'
         self.v2_api = 'https://twitter.com/i/api/2'
         self.logger = self._init_logger(**kwargs)
-        self.session = self._validate_session(email, username, password, session, **kwargs)
+        self.proxies = proxies
+        self.session = self._validate_session(email, username, password, session, proxies, **kwargs)
 
     def gql(self, method: str, operation: tuple, variables: dict, features: dict = Operation.default_features) -> dict:
         qid, op = operation
@@ -60,6 +61,7 @@ class Account:
             method=method,
             url=f'{self.gql_api}/{qid}/{op}',
             headers=get_headers(self.session),
+            proxies=self.proxies,
             **data
         )
         if self.debug:
@@ -69,7 +71,7 @@ class Account:
     def v1(self, path: str, params: dict) -> dict:
         headers = get_headers(self.session)
         headers['content-type'] = 'application/x-www-form-urlencoded'
-        r = self.session.post(f'{self.v1_api}/{path}', headers=headers, data=urlencode(params))
+        r = self.session.post(f'{self.v1_api}/{path}', headers=headers, data=urlencode(params), proxies=self.proxies)
         if self.debug:
             log(self.logger, self.debug, r)
         return r.json()
@@ -374,7 +376,7 @@ class Account:
         url = f'{self.v1_api}/account/update_profile_image.json'
         headers = get_headers(self.session)
         params = {'media_id': media_id}
-        r = self.session.post(url, headers=headers, params=params)
+        r = self.session.post(url, headers=headers, params=params, proxies=self.proxies)
         return r
 
     def update_profile_banner(self, media: str) -> Response:
@@ -382,13 +384,13 @@ class Account:
         url = f'{self.v1_api}/account/update_profile_banner.json'
         headers = get_headers(self.session)
         params = {'media_id': media_id}
-        r = self.session.post(url, headers=headers, params=params)
+        r = self.session.post(url, headers=headers, params=params, proxies=self.proxies)
         return r
 
     def update_profile_info(self, **kwargs) -> Response:
         url = f'{self.v1_api}/account/update_profile.json'
         headers = get_headers(self.session)
-        r = self.session.post(url, headers=headers, params=kwargs)
+        r = self.session.post(url, headers=headers, params=kwargs, proxies=self.proxies)
         return r
 
     def update_search_settings(self, settings: dict) -> Response:
@@ -398,6 +400,7 @@ class Account:
             url=f'{self.v1_api}/strato/column/User/{twid}/search/searchSafety',
             headers=headers,
             json=settings,
+            proxies=self.proxies
         )
         return r
 
@@ -413,7 +416,7 @@ class Account:
         headers = get_headers(self.session)
         headers['content-type'] = 'application/x-www-form-urlencoded'
         url = 'https://twitter.com/i/api/i/account/change_password.json'
-        r = self.session.post(url, headers=headers, data=urlencode(params))
+        r = self.session.post(url, headers=headers, data=urlencode(params), proxies=self.proxies)
         return r.json()
 
     def remove_interests(self, *args):
@@ -422,7 +425,8 @@ class Account:
         """
         r = self.session.get(
             f'{self.v1_api}/account/personalization/twitter_interests.json',
-            headers=get_headers(self.session)
+            headers=get_headers(self.session),
+            proxies=self.proxies
         )
         current_interests = r.json()['interested_in']
         if args == 'all':
@@ -440,7 +444,8 @@ class Account:
         r = self.session.post(
             f'{self.v1_api}/account/personalization/p13n_preferences.json',
             headers=get_headers(self.session),
-            json=payload
+            json=payload,
+            proxies=self.proxies
         )
         return r
 
@@ -515,7 +520,7 @@ class Account:
 
         params = {'command': 'INIT', 'media_type': media_type, 'total_bytes': total_bytes,
                   'media_category': media_category}
-        r = self.session.post(url=url, headers=headers, params=params)
+        r = self.session.post(url=url, headers=headers, params=params, proxies=self.proxies)
 
         if r.status_code >= 400:
             raise Exception(f'{r.text}')
@@ -542,12 +547,12 @@ class Account:
                             b'--\r\n',
                         ])
                         _headers = {b'content-type': b'multipart/form-data; boundary=----WebKitFormBoundary' + pad}
-                        r = self.session.post(url=url, headers=headers | _headers, params=params, content=data)
+                        r = self.session.post(url=url, headers=headers | _headers, params=params, content=data, proxies=self.proxies)
                     except Exception as e:
                         self.logger.error(f'Failed to upload chunk, trying alternative method\n{e}')
                         try:
                             files = {'media': chunk}
-                            r = self.session.post(url=url, headers=headers, params=params, files=files)
+                            r = self.session.post(url=url, headers=headers, params=params, files=files, proxies=self.proxies)
                         except Exception as e:
                             self.logger.error(f'Failed to upload chunk\n{e}')
                             return
@@ -561,7 +566,7 @@ class Account:
         params = {'command': 'FINALIZE', 'media_id': media_id, 'allow_async': 'true'}
         if is_dm:
             params |= {'original_md5': hashlib.md5(file.read_bytes()).hexdigest()}
-        r = self.session.post(url=url, headers=headers, params=params)
+        r = self.session.post(url=url, headers=headers, params=params, proxies=self.proxies)
         if r.status_code == 400:
             self.logger.debug(f'{RED}{r.status_code} {r.text}{RESET}')
             return
@@ -581,7 +586,7 @@ class Account:
             check_after_secs = processing_info.get('check_after_secs', random.randint(1, 5))
             time.sleep(check_after_secs)
             params = {'command': 'STATUS', 'media_id': media_id}
-            r = self.session.get(url=url, headers=headers, params=params)
+            r = self.session.get(url=url, headers=headers, params=params, proxies=self.proxies)
             processing_info = r.json().get('processing_info')
         # self.logger.debug('processing complete')
         return media_id
@@ -589,7 +594,7 @@ class Account:
     def _add_alt_text(self, media_id: int, text: str) -> Response:
         params = {"media_id": media_id, "alt_text": {"text": text}}
         url = f'{self.v1_api}/media/metadata/create.json'
-        r = self.session.post(url, headers=get_headers(self.session), json=params)
+        r = self.session.post(url, headers=get_headers(self.session), json=params, proxies=self.proxies)
         return r
 
     def _init_logger(self, **kwargs) -> Logger:
@@ -609,11 +614,11 @@ class Account:
 
     @staticmethod
     def _validate_session(*args, **kwargs):
-        email, username, password, session = args
+        email, username, password, session, proxies= args
 
         # validate credentials
         if all((email, username, password)):
-            session = login(email, username, password, **kwargs)
+            session = login(email, username, password, proxies, **kwargs)
             session._init_with_cookies = False
             return session
 
@@ -627,14 +632,14 @@ class Account:
 
         # try validating cookies dict
         if isinstance(cookies, dict) and all(cookies.get(c) for c in {'ct0', 'auth_token'}):
-            _session = Client(cookies=cookies, follow_redirects=True)
+            _session = Client(cookies=cookies, proxies=proxies, follow_redirects=True)
             _session._init_with_cookies = True
             _session.headers.update(get_headers(_session))
             return _session
 
         # try validating cookies from file
         if isinstance(cookies, str):
-            _session = Client(cookies=orjson.loads(Path(cookies).read_bytes()), follow_redirects=True)
+            _session = Client(cookies=orjson.loads(Path(cookies).read_bytes()), proxies=proxies, follow_redirects=True)
             _session._init_with_cookies = True
             _session.headers.update(get_headers(_session))
             return _session
@@ -651,7 +656,8 @@ class Account:
         r = self.session.get(
             f'{self.v1_api}/dm/inbox_initial_state.json',
             headers=get_headers(self.session),
-            params=dm_params
+            params=dm_params,
+            proxies=self.proxies
         )
         return r.json()
 
@@ -670,6 +676,7 @@ class Account:
             r = await session.get(
                 f'{self.v1_api}/dm/conversation/{conversation_id}.json',
                 params=params,
+                proxies=self.proxies
             )
             res = r.json().get('conversation_timeline', {})
             data = [x.get('message') for x in res.get('entries', [])]
@@ -679,6 +686,7 @@ class Account:
                 r = await session.get(
                     f'{self.v1_api}/dm/conversation/{conversation_id}.json',
                     params=params,
+                    proxies=self.proxies
                 )
                 res = r.json().get('conversation_timeline', {})
                 data.extend(x['message'] for x in res.get('entries', []))
@@ -688,7 +696,7 @@ class Account:
         async def process(ids):
             limits = Limits(max_connections=100)
             headers, cookies = get_headers(self.session), self.session.cookies
-            async with AsyncClient(limits=limits, headers=headers, cookies=cookies, timeout=20) as c:
+            async with AsyncClient(limits=limits, headers=headers, cookies=cookies, proxies=self.proxies, timeout=20) as c:
                 return await tqdm_asyncio.gather(*(get(c, _id) for _id in ids), desc="Getting DMs")
 
         if conversation_ids:
