@@ -82,7 +82,7 @@ class Search:
 
     async def get(self, client: AsyncClient, params: dict) -> tuple:
         _, qid, name = Operation.SearchTimeline
-        r = await client.get(f'https://twitter.com/i/api/graphql/{qid}/{name}', params=build_params(params), proxies=self.proxies)
+        r = await client.get(f'https://twitter.com/i/api/graphql/{qid}/{name}', params=build_params(params))
         data = r.json()
         cursor = self.get_cursor(data)
         entries = [y for x in find_key(data, 'entries') for y in x if re.search(r'^(tweet|user)-', y['entryId'])]

@@ -383,7 +383,7 @@ class Scraper:
         }
         url = f'https://twitter.com/i/api/1.1/live_video_stream/status/{media_key}'
         try:
-            r = await client.get(url, params=params, proxies=self.proxies)
+            r = await client.get(url, params=params)
             return r.json()
         except Exception as e:
             self.logger.error(f'stream not available for playback\n{e}')
@@ -391,7 +391,7 @@ class Scraper:
     async def _init_chat(self, client: AsyncClient, chat_token: str) -> dict:
         payload = {'chat_token': chat_token}  # stream['chatToken']
         url = 'https://proxsee.pscp.tv/api/v2/accessChatPublic'
-        r = await client.post(url, json=payload, proxies=self.proxies)
+        r = await client.post(url, json=payload)
         return r.json()
 
     async def _get_chat(self, client: AsyncClient, endpoint: str, access_token: str, cursor: str = '') -> list[dict]:
@@ -540,7 +540,7 @@ class Scraper:
             'variables': Operation.default_variables | keys | kwargs,
             'features': Operation.default_features,
         }
-        r = await client.get(f'https://twitter.com/i/api/graphql/{qid}/{name}', params=build_params(params), proxies=self.proxies)
+        r = await client.get(f'https://twitter.com/i/api/graphql/{qid}/{name}', params=build_params(params))
         if self.debug:
             log(self.logger, self.debug, r)
         if self.save:
@@ -576,7 +576,7 @@ class Scraper:
                 ids = set(find_key(initial_data, 'rest_id'))
                 cursor = get_cursor(initial_data)
             except Exception as e:
-                self.logger.error('Failed to get initial pagination data', e)
+                self.logger.error('Failed to get initial pagination data')
                 return
         while (dups < DUP_LIMIT) and cursor:
             prev_len = len(ids)
@@ -671,12 +671,10 @@ class Scraper:
                     'client': 'web',
                     'use_syndication_guest_id': 'false',
                     'cookie_set_host': 'twitter.com',
-                },
-                proxies=self.proxies)
+                })
             r = await c.post(
                 url='https://proxsee.pscp.tv/api/v2/accessChatPublic',
-                json={'chat_token': r.json()['chatToken']},
-                proxies=self.proxies
+                json={'chat_token': r.json()['chatToken']}
             )
             return r.json()
 
@@ -722,8 +720,7 @@ class Scraper:
                 media_key = space['data']['audioSpace']['metadata']['media_key']
                 r = await client.get(
                     url=f'https://twitter.com/i/api/1.1/live_video_stream/status/{media_key}',
-                    params={'client': 'web', 'use_syndication_guest_id': 'false', 'cookie_set_host': 'twitter.com'},
-                    proxies=self.proxies
+                    params={'client': 'web', 'use_syndication_guest_id': 'false', 'cookie_set_host': 'twitter.com'}
                 )
                 data = r.json()
                 room = data['shareUrl'].split('/')[-1]
